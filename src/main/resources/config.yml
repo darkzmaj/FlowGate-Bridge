@@ -1,0 +1,5 @@
+# FlowGate-Bridge Configuration
+# Format: <command>: <target-server>
+slash-servers:
+  wonderland: wonderland-1
+  lobby: lobby
