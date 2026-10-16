@@ -1,5 +1,5 @@
 name: FlowGate-Bridge
-version: '1.0.0'
+version: '${version}'
 main: si.terona.FlowGateBridge
 api-version: '1.21'
 author: Terona Studios
@@ -16,3 +16,7 @@ permissions:
   flowgatebridge.admin:
     description: Allows reloading the FlowGate-Bridge config
     default: op
+
+  flowgatebridge.use:
+    description: Allows configured connection commands (proxy policy still applies)
+    default: true

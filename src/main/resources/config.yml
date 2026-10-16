@@ -1,5 +1,7 @@
 # FlowGate-Bridge Configuration
-# Format: <command>: <target-server>
+# Format: <command>: <target-server> (target case is preserved)
+# Commands: letters/numbers, _ or -; targets may additionally contain dots.
+# Proxy source/destination permissions remain authoritative.
 slash-servers:
   wonderland: wonderland-1
   lobby: lobby
