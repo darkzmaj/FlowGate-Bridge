@@ -1,142 +1,31 @@
 # FlowGate-Bridge
 
-A lightweight Paper/Spigot plugin that allows Citizens NPCs (or players) to execute `/servername` commands and seamlessly connect to servers through a BungeeCord/Waterfall/FlameCord proxy.
+A lightweight backend plugin that lets players and Citizens NPCs executing as players use configured slash commands to request a proxy server switch. This is independent of FlowGate Lite: Bridge runs on the backend; Lite runs on BungeeCord.
 
-## ✨ Features
+## Install
 
-* Dynamic commands from config (`/servername`)
-* Works with Citizens NPCs (player execution)
-* No permissions required
-* No command conflicts
-* Extremely lightweight (no listeners, no loops)
-* Fully proxy-compatible (BungeeCord, Waterfall, FlameCord)
-* Zero hardcoded values — fully configurable
-
----
-
-## 📦 How It Works
-
-FlowGate-Bridge acts as a backend bridge:
-
-```text
-Player/NPC → /command → Bridge (Paper) → Plugin Message → Proxy → Server Switch
-```
-
-* The plugin registers commands on the backend server
-* When executed, it sends a plugin message to the proxy
-* Your proxy plugin (e.g. FlowGate-Lite) handles the actual server connection
-
----
-
-## ⚙️ Installation
-
-1. Install a proxy:
-
-   * BungeeCord / Waterfall / FlameCord
-
-2. Install your proxy-side plugin (e.g. FlowGate-Lite)
-
-3. Install **FlowGate-Bridge** on your backend server (Paper/Spigot)
-
-4. Configure both plugins with the same `slash-servers` section
-
-5. Restart server
-
----
-
-## 📝 Configuration
-
-`config.yml`
+Copy `FlowGate-Bridge-1.0.1.jar` to your Paper backend's `plugins/` directory and configure:
 
 ```yaml
 slash-servers:
+  lobby: Lobby-EU
   survival: survival
-  skyblock: skyblock
-  wonderland: wonderland
 ```
 
-### Format
+Command names are case-insensitive; target server names preserve their case and must exactly match the proxy configuration. Names must contain letters/numbers, underscores or hyphens; server targets may also contain dots, up to 128 characters. `/flowgate-bridge reload` requires `flowgatebridge.admin` (default: operator). Invalid YAML or routes retain the previous configuration. Removed commands and their namespaced aliases are unregistered on reload; other plugins' commands are preserved.
 
-```
-<command>: <target-server>
-```
+`flowgatebridge.use` allows route commands and defaults to true for backward compatibility. Explicitly deny it to restrict users. A 500 ms per-player cooldown prevents repeated message spam; entries are removed on quit/shutdown. Connection messages do not acknowledge success: the proxy controls routing and reports connection failures.
 
-* `command` → what players/NPCs execute (`/survival`)
-* `target-server` → server name in your proxy config
+## Compatibility and security
 
----
+The plugin retains Java 21 bytecode and `api-version: 1.21`. Current target: **Paper 26.3 build 194**, requiring **Java 25**. Older Paper/Spigot servers retain command-map compatibility fallbacks but require separate runtime testing. Folia is not declared supported. Waterfall is discontinued; do not claim latest Minecraft support using it.
 
-## 🔁 Reload Command
+The wire format is unchanged: `writeUTF("Connect")`, `writeUTF(target)`, through `BungeeCord` (`bungeecord:main` on the network). No input becomes a console command. Bridge registers only an outgoing channel, accepts no inbound requests, and can request a switch only for the executing player. Arbitrary command arguments do not control the destination.
 
-```bash
-/flowgate-bridge reload
-```
+Use maintained BungeeCord (build 2104 for protocol 777 / Minecraft 26.3). With FlowGate Lite, explicitly permit backend source names and target names in its `plugin-messages` policy. Velocity can provide the Bungee message channel when `advanced.bungee-plugin-message-channel` is enabled. FlowGate Lite itself cannot load on Velocity. Protect offline-mode backends from direct public access, enable appropriate proxy forwarding, and apply destination access controls on the proxy. A compromised trusted backend remains inside the proxy trust boundary.
 
-* Reloads config
-* Re-registers commands
-* Applies changes instantly
+Citizens example: `/npc command add -p survival`. This requires the NPC action to execute as a real connected player.
 
----
+## Build
 
-## 🤖 Citizens NPC Example
-
-```bash
-/npc command add -p survival
-```
-
-* Player clicks NPC → executes `/survival`
-* Bridge forwards to proxy
-* Player is connected
-
----
-
-## ⚠️ Important Notes
-
-* Commands must match your proxy configuration
-* Target servers must exist on proxy
-* This plugin does **not** handle server switching itself
-* Requires proxy plugin to complete routing
-
----
-
-## 🧠 Why This Plugin Exists
-
-Minecraft processes commands on backend servers first.
-Without this bridge, proxy-only commands like `/survival` will fail with:
-
-```
-Unknown command
-```
-
-FlowGate-Bridge solves this cleanly by:
-
-* registering commands on backend
-* forwarding them properly to proxy
-
----
-
-## 🚀 Performance
-
-* No event listeners
-* No async tasks
-* No heavy logic
-
-Overhead is effectively zero.
-
----
-
-## 🔗 Compatibility
-
-* Paper / Spigot (1.16+ recommended)
-* BungeeCord / Waterfall / FlameCord
-* Citizens (optional)
-
----
-
-## 📄 License
-
-MIT License (or your preferred license)
-
----
-
-![Replace this with a description](https://cdn.modrinth.com/data/cached_images/c0ed4260b1584b2f8a3d8cd12068aebbdbf85179.png)
+Use JDK 25 and `bash gradlew clean build`. Output: `build/libs/FlowGate-Bridge-1.0.1.jar`. No runtime dependencies are shaded. The MIT [LICENSE](LICENSE) is included in the JAR. See [CHANGELOG.md](CHANGELOG.md) and [AUDIT.md](AUDIT.md) for validation and limitations.

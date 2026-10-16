@@ -1,132 +1,156 @@
 package si.terona;
 
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.defaults.BukkitCommand;
-import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
+import si.terona.bridge.BridgeProtocol;
+import si.terona.bridge.RouteConfig;
 
 import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
-public final class FlowGateBridge extends JavaPlugin {
+/** Backend commands request a switch for their executing player, never a console command. */
+public final class FlowGateBridge extends JavaPlugin implements Listener {
+    private volatile Map<String, String> slashServers = Map.of();
+    private final Set<Command> registeredCommands = new HashSet<>();
+    private final Map<UUID, Long> lastRequest = new ConcurrentHashMap<>();
+    private CommandMap commandMap;
+    private Map<String, Command> knownCommands;
+    private static final long COOLDOWN_NANOS = TimeUnit.MILLISECONDS.toNanos(500);
 
-    private final Map<String, String> slashServers = new HashMap<>();
-
-    @Override
-    public void onEnable() {
-        slashServers.clear();
+    @Override public void onEnable() {
         saveDefaultConfig();
-        loadSlashServers();
-        registerOutgoingChannel();
-        registerCommands();
+        try {
+            // Public on Paper; legacy Bukkit implementations expose only a field.
+            try { commandMap = (CommandMap) getServer().getClass().getMethod("getCommandMap").invoke(getServer()); }
+            catch (NoSuchMethodException legacy) { commandMap = (CommandMap) findField(getServer().getClass(), "commandMap").get(getServer()); }
+            knownCommands = knownCommands(commandMap);
+            slashServers = readRoutes();
+            getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+            getServer().getPluginManager().registerEvents(this, this);
+            registerCommands();
+        } catch (Exception failure) {
+            getLogger().log(Level.SEVERE, "Cannot start FlowGate-Bridge; check route configuration and server command registration support", failure);
+            getServer().getPluginManager().disablePlugin(this);
+        }
     }
 
-    private void loadSlashServers() {
-        ConfigurationSection section = getConfig().getConfigurationSection("slash-servers");
-        if (section == null) {
-            getLogger().warning("No 'slash-servers' section found in config.yml");
-            return;
-        }
-
-        for (String command : section.getKeys(false)) {
-            String targetServer = section.getString(command);
-
-            if (command.isEmpty() || command.contains(" ")) {
-                getLogger().warning("Invalid command name: '" + command + "'");
-                continue;
-            }
-
-            if (targetServer == null || targetServer.isEmpty()) {
-                getLogger().warning("Target server for command '" + command + "' is empty!");
-                continue;
-            }
-            
-            slashServers.put(command.toLowerCase(), targetServer.toLowerCase());
-        }
-        getLogger().info("Loaded " + slashServers.size() + " slash commands.");
+    private Map<String, String> readRoutes() throws Exception {
+        YamlConfiguration config = new YamlConfiguration();
+        config.load(new java.io.File(getDataFolder(), "config.yml"));
+        return RouteConfig.parse(config);
     }
 
-    private void registerOutgoingChannel() {
-        getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+    private static Field findField(Class<?> type, String name) throws NoSuchFieldException {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                Field field = current.getDeclaredField(name);
+                field.setAccessible(true);
+                return field;
+            } catch (NoSuchFieldException absent) { /* search superclass */ }
+        }
+        throw new NoSuchFieldException(name);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Command> knownCommands(CommandMap map) throws Exception {
+        try { return (Map<String, Command>) map.getClass().getMethod("getKnownCommands").invoke(map); }
+        catch (NoSuchMethodException legacy) { return (Map<String, Command>) findField(map.getClass(), "knownCommands").get(map); }
     }
 
     private void registerCommands() {
-        try {
-            Field commandMapField = getServer().getClass().getDeclaredField("commandMap");
-            commandMapField.setAccessible(true);
-            CommandMap commandMap = (CommandMap) commandMapField.get(getServer());
-
-            for (String cmdName : slashServers.keySet()) {
-                Command existing = commandMap.getCommand(cmdName);
-                if (existing != null) {
-                    continue;
-                }
-
-                ProxyCommand proxyCommand = new ProxyCommand(cmdName);
-                commandMap.register("flowgatebridge", proxyCommand);
+        for (String name : slashServers.keySet()) {
+            if (commandMap.getCommand(name) != null) {
+                getLogger().warning("Skipping route /" + name + ": command already belongs to another plugin or the server");
+                continue;
             }
-            
-            // To ensure Paper recognizes new commands for tab completion and command map
-            try {
-                getServer().getClass().getMethod("syncCommands").invoke(getServer());
-            } catch (NoSuchMethodException ignored) {
-            }
-        } catch (Exception e) {
-            getLogger().severe("Failed to register commands via reflection: " + e.getMessage());
+            Command route = new ProxyCommand(name);
+            commandMap.register("flowgatebridge", route);
+            registeredCommands.add(route);
         }
+        syncCommands();
+        getLogger().info("Registered " + registeredCommands.size() + " connection commands.");
     }
 
-    @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
-            if (!sender.hasPermission("flowgatebridge.admin")) {
-                sender.sendMessage("§cNo permission.");
-                return true;
-            }
-
-            reloadConfig();
-            slashServers.clear();
-            loadSlashServers();
-            registerCommands();
-
-            sender.sendMessage("§aFlowGate-Bridge reloaded!");
-            return true;
+    private void unregisterCommands() {
+        if (knownCommands != null) for (String name : new ArrayList<>(knownCommands.keySet())) {
+            if (registeredCommands.contains(knownCommands.get(name))) knownCommands.remove(name);
         }
-        return false;
+        if (commandMap != null) for (Command command : registeredCommands) command.unregister(commandMap);
+        registeredCommands.clear();
     }
 
-    private class ProxyCommand extends BukkitCommand {
+    private void syncCommands() {
+        try { getServer().getClass().getMethod("syncCommands").invoke(getServer()); }
+        catch (NoSuchMethodException legacy) { /* Older servers update commands themselves. */ }
+        catch (ReflectiveOperationException error) { getLogger().log(Level.WARNING, "Commands registered, but client command-tree synchronization failed", error); }
+    }
 
-        protected ProxyCommand(@NotNull String name) {
-            super(name);
-        }
+    @Override public void onDisable() {
+        unregisterCommands();
+        lastRequest.clear();
+        slashServers = Map.of();
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this);
+    }
 
-        @Override
-        public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
-            if (!(sender instanceof Player player)) {
-                return true;
-            }
+    @EventHandler public void onQuit(PlayerQuitEvent event) { lastRequest.remove(event.getPlayer().getUniqueId()); }
 
-            String targetServer = slashServers.get(getName().toLowerCase());
-
-            if (targetServer == null || targetServer.isEmpty()) {
-                player.sendMessage("§cServer not configured.");
-                return true;
-            }
-
-            ByteArrayDataOutput out = ByteStreams.newDataOutput();
-            out.writeUTF("Connect");
-            out.writeUTF(targetServer);
-
-            player.sendPluginMessage(FlowGateBridge.this, "BungeeCord", out.toByteArray());
+    @Override public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
+                                      @NotNull String label, @NotNull String[] args) {
+        if (args.length != 1 || !args[0].equalsIgnoreCase("reload")) return false;
+        if (!sender.hasPermission("flowgatebridge.admin")) { sender.sendMessage("§cNo permission."); return true; }
+        Map<String, String> replacement;
+        try { replacement = readRoutes(); }
+        catch (Exception failure) {
+            getLogger().warning("Reload rejected; previous routes retained: " + failure.getClass().getSimpleName());
+            sender.sendMessage("§cReload failed. Check config.yml; previous routes are still active.");
             return true;
         }
+        unregisterCommands();
+        slashServers = replacement;
+        registerCommands();
+        sender.sendMessage("§aFlowGate-Bridge reloaded!");
+        return true;
+    }
+
+    @Override public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                                              @NotNull String alias, @NotNull String[] args) {
+        return sender.hasPermission("flowgatebridge.admin") && args.length == 1
+                && "reload".startsWith(args[0].toLowerCase(Locale.ROOT)) ? List.of("reload") : List.of();
+    }
+
+    private final class ProxyCommand extends BukkitCommand {
+        private ProxyCommand(String name) { super(name); setPermission("flowgatebridge.use"); }
+
+        @Override public boolean execute(@NotNull CommandSender sender, @NotNull String label, @NotNull String[] args) {
+            if (!testPermission(sender) || !(sender instanceof Player player) || !player.isOnline()) return true;
+            String target = slashServers.get(getName().toLowerCase(Locale.ROOT));
+            if (target == null || !isEnabled()) return true;
+            long now = System.nanoTime();
+            java.util.concurrent.atomic.AtomicBoolean accepted = new java.util.concurrent.atomic.AtomicBoolean();
+            lastRequest.compute(player.getUniqueId(), (id, previous) -> {
+                if (previous != null && now - previous < COOLDOWN_NANOS) return previous;
+                accepted.set(true); return now;
+            });
+            if (!accepted.get()) return true;
+            try { player.sendPluginMessage(FlowGateBridge.this, "BungeeCord", BridgeProtocol.connect(target)); }
+            catch (IllegalArgumentException | IllegalStateException failure) {
+                getLogger().log(Level.WARNING, "Unable to send connection request; verify proxy channel support", failure);
+                player.sendMessage("§cCould not send the connection request.");
+            }
+            return true;
+        }
+        @Override public List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) { return List.of(); }
     }
 }
