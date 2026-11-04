@@ -117,9 +117,12 @@ public final class FlowGateBridge extends JavaPlugin implements Listener {
             sender.sendMessage("§cReload failed. Check config.yml; previous routes are still active.");
             return true;
         }
-        unregisterCommands();
-        slashServers = replacement;
-        registerCommands();
+        // Folia runs commands on several region threads at once; one reload at a time.
+        synchronized (this) {
+            unregisterCommands();
+            slashServers = replacement;
+            registerCommands();
+        }
         sender.sendMessage("§aFlowGate-Bridge reloaded!");
         return true;
     }

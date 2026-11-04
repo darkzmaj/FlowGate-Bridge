@@ -1,3 +1,8 @@
+# 1.0.2 — 2026-11-04
+
+- Folia support: the plugin now declares `folia-supported: true`. It only registers commands and sends plugin messages for the player who ran them, never touching the Bukkit scheduler, worlds or entities.
+- Reloads are serialised, so two reloads started from different Folia regions cannot interleave.
+
 # 1.0.1 — 2026-10-16
 
 - Preserve proxy target case; normalize only command names with Locale.ROOT.

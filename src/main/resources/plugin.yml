@@ -2,6 +2,7 @@ name: FlowGate-Bridge
 version: '${version}'
 main: si.terona.FlowGateBridge
 api-version: '1.21'
+folia-supported: true
 author: Terona Studios
 description: A minimal Paper plugin to bridge slash-commands to proxy servers.
 website: https://teronastudios.com

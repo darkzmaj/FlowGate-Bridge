@@ -1,6 +1,6 @@
 # FlowGate-Bridge
 
-A lightweight Paper/Spigot plugin that allows Citizens NPCs (or players) to execute `/servername` commands and seamlessly connect to servers through a BungeeCord/Waterfall/FlameCord proxy.
+A lightweight Paper/Spigot/Folia plugin that allows Citizens NPCs (or players) to execute `/servername` commands and seamlessly connect to servers through a BungeeCord/Waterfall/FlameCord proxy.
 
 [![discord](https://cdn.modrinth.com/data/cached_images/c97c06e73051a5a1a196babde1652b0cac4b09f4.png)](https://discord.com/invite/4NF45wy2F2)
 
@@ -34,7 +34,7 @@ Player/NPC → /command → Bridge (Paper) → Plugin Message → Proxy → Serv
 
 2. Install your proxy-side plugin (e.g. FlowGate-Lite)
 
-3. Install **FlowGate-Bridge** on your backend server (Paper/Spigot)
+3. Install **FlowGate-Bridge** on your backend server (Paper, Spigot, Purpur or Folia)
 
 4. Configure both plugins with the same `slash-servers` section
 
@@ -111,6 +111,6 @@ Overhead is effectively zero.
 
 ## 🔗 Compatibility
 
-* Paper / Spigot (1.16+ recommended)
+* Paper / Spigot / Purpur / Folia (1.16+ recommended)
 * BungeeCord / Waterfall / FlameCord
 * Citizens (optional)
