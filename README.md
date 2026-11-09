@@ -42,6 +42,4 @@ FlowGate Bridge opens no network connections of its own. It does not check for u
 
 [![Join our Discord: darkzmaj.eu/discord](https://kori.my/assets/img/brand/discord-banner.png)](https://darkzmaj.eu/discord)
 
-![© 2026 DarkZmaj · KORI Network](https://kori.my/assets/img/brand/copyright.png)
-
 Free and open source under the MIT licence. Made by DarkZmaj for KORI Network.
