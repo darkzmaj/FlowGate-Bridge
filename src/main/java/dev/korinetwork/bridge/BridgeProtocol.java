@@ -1,4 +1,4 @@
-package si.terona.bridge;
+package dev.korinetwork.bridge;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;

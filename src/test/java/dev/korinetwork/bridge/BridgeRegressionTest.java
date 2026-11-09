@@ -1,4 +1,4 @@
-package si.terona.bridge;
+package dev.korinetwork.bridge;
 import org.junit.jupiter.api.Test;
 import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.*;

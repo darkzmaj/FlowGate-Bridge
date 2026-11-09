@@ -1,4 +1,4 @@
-package si.terona.bridge;
+package dev.korinetwork.bridge;
 
 import org.bukkit.configuration.ConfigurationSection;
 import java.util.LinkedHashMap;
