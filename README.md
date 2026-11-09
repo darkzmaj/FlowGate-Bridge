@@ -38,6 +38,6 @@ FlowGate Bridge opens no network connections of its own. It does not check for u
 - **Documentation:** https://kori.my/docs/flowgate-bridge/
 - **Download:** [GitHub](https://github.com/darkzmaj/FlowGate-Bridge/releases/latest), [Modrinth](https://modrinth.com/plugin/flowgate-bridge), [SpigotMC](https://www.spigotmc.org/resources/133640/)
 - **Source code:** https://github.com/darkzmaj/FlowGate-Bridge
-- **Support:** https://kori.my
+- **Support:** [Discord](https://kori.my/discord) and https://kori.my
 
 Free and open source under the MIT licence. Made by DarkZmaj for KORI Network.
