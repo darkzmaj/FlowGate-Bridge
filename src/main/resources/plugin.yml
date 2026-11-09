@@ -1,11 +1,11 @@
 name: FlowGate-Bridge
 version: '${version}'
-main: si.terona.FlowGateBridge
+main: dev.korinetwork.FlowGateBridge
 api-version: '1.21'
 folia-supported: true
-author: Terona Studios
+author: DarkZmaj
 description: A minimal Paper plugin to bridge slash-commands to proxy servers.
-website: https://teronastudios.com
+website: https://kori.my
 
 commands:
   flowgate-bridge:

@@ -1,5 +1,5 @@
 plugins { id 'java' }
-group = 'si.terona'
+group = 'dev.korinetwork'
 version = '1.0.2'
 repositories {
     mavenCentral()

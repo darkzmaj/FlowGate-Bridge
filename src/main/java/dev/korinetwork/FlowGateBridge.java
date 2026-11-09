@@ -1,4 +1,4 @@
-package si.terona;
+package dev.korinetwork;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -11,8 +11,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
-import si.terona.bridge.BridgeProtocol;
-import si.terona.bridge.RouteConfig;
+import dev.korinetwork.bridge.BridgeProtocol;
+import dev.korinetwork.bridge.RouteConfig;
 
 import java.lang.reflect.Field;
 import java.util.*;
